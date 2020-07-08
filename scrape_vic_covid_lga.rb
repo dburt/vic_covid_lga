@@ -10,10 +10,10 @@ require 'csv'
 require 'net/http'
 require 'uri'
 
-# https://www.dhhs.vic.gov.au/coronavirus-update-victoria-12-june-2020
+# https://www.dhhs.vic.gov.au/coronavirus-update-victoria-11-june-2020
 url_template = "https://www.dhhs.vic.gov.au/coronavirus-update-victoria-%s"
-date_format = "%-d-%B-%Y"  # 12-june-2020
-dates = Date.new(2020, 6, 12) .. (Date.today - 1)
+date_format = "%-d-%B-%Y"  # 11-june-2020
+dates = Date.new(2020, 6, 11) .. Date.today
 
 html_path_template = "./html/coronavirus-update-victoria-%s.html"
 csv_path_template = "./csv/%s.csv"
@@ -30,6 +30,10 @@ dates.each do |date|
         html = File.read(html_path)
     else
         html = Net::HTTP.get(URI(url))
+        if html =~ /Error\<\/title\>/
+            url = url_template % ("0" + formatted_date)
+            html = Net::HTTP.get(URI(url))
+        end
         File.open(html_path, 'w') do |f|
             f.write html
         end
@@ -62,7 +66,7 @@ dates.each do |date|
     end
 end
 
-CSV.open('master.csv', 'w') do |csv|
+CSV.open("coronavirus cases by vic lga #{formatted_date}", 'w') do |csv|
     csv << %w(date lga_name total_cases active_cases new_cases)
 
     dates.each do |date|
