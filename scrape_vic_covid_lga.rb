@@ -66,7 +66,7 @@ dates.each do |date|
     end
 end
 
-CSV.open("coronavirus cases by vic lga #{formatted_date}", 'w') do |csv|
+CSV.open("coronavirus cases by vic lga #{dates.last.strftime(date_format).downcase}.csv", 'w') do |csv|
     csv << %w(date lga_name total_cases active_cases new_cases)
 
     dates.each do |date|
