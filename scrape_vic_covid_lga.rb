@@ -33,6 +33,10 @@ dates.each do |date|
         if html =~ /Error\<\/title\>/
             url = url_template % ("0" + formatted_date)
             html = Net::HTTP.get(URI(url))
+            if html =~ /Error\<\/title\>/
+                url = url_template % date.strftime("%A-%-d-%B").downcase
+                html = Net::HTTP.get(URI(url))
+            end
         end
         File.open(html_path, 'w') do |f|
             f.write html
@@ -66,7 +70,9 @@ dates.each do |date|
     end
 end
 
-CSV.open("coronavirus cases by vic lga #{dates.last.strftime(date_format).downcase}.csv", 'w') do |csv|
+output_path = "coronavirus cases by vic lga #{dates.last.strftime(date_format).downcase}.csv"
+count = 0
+CSV.open(output_path, 'w') do |csv|
     csv << %w(date lga_name total_cases active_cases new_cases)
 
     dates.each do |date|
@@ -85,7 +91,9 @@ CSV.open("coronavirus cases by vic lga #{dates.last.strftime(date_format).downca
         csv_data.each do |lga_name, total_cases, active_cases|
             csv << [date, lga_name, total_cases, active_cases,
                     total_cases.to_i - last_total_for_lga[lga_name]]
+            count += 1
             last_total_for_lga[lga_name] = total_cases.to_i
         end
     end
 end
+puts "Wrote #{count} records to #{output_path}"
