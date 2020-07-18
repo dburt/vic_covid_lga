@@ -20,7 +20,6 @@ date_formats = [
     "%A-%-d-%B-%Y",  # monday-1-june-2020
     "%A-%d-%B-%Y",   # monday-01-june-2020
 ]
-default_date_format = date_formats[1]
 dates = Date.new(2020, 6, 11) .. Date.today
 
 html_path_template = "./html/coronavirus-update-victoria-%s.html"
@@ -29,9 +28,8 @@ csv_path_template = "./csv/%s.csv"
 last_total_for_lga = Hash.new { 0 }
 
 dates.each do |date|
-    formatted_date = date.strftime(default_date_format).downcase
-    html_path = html_path_template % formatted_date
-    csv_path = csv_path_template % formatted_date
+    html_path = html_path_template % date.to_s
+    csv_path = csv_path_template % date.to_s
 
     if File.exist?(html_path)
         html = File.read(html_path)
@@ -56,7 +54,7 @@ dates.each do |date|
 
     table = doc.css('table')
     if table.length != 1
-        STDERR.puts "warning: #{formatted_date} has #{table.length} tables"
+        STDERR.puts "warning: #{date} has #{table.length} tables"
         next
     end
     data = []
@@ -73,14 +71,13 @@ dates.each do |date|
     end
 end
 
-output_path = "coronavirus cases by vic lga #{dates.last.strftime(default_date_format).downcase}.csv"
+output_path = "coronavirus cases by vic lga #{dates.last.to_s}.csv"
 count = 0
 CSV.open(output_path, 'w') do |csv|
     csv << %w(date lga_name total_cases active_cases new_cases)
 
     dates.each do |date|
-        formatted_date = date.strftime(default_date_format).downcase
-        csv_path = csv_path_template % formatted_date
+        csv_path = csv_path_template % date.to_s
 
         csv_data = CSV.read(csv_path) rescue next
         headers = csv_data.shift
