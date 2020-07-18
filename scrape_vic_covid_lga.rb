@@ -9,6 +9,7 @@ require 'date'
 require 'csv'
 require 'net/http'
 require 'uri'
+require 'pathname'
 
 # https://www.dhhs.vic.gov.au/coronavirus-update-victoria-11-june-2020
 url_template = "https://www.dhhs.vic.gov.au/coronavirus-update-victoria-%s"
@@ -24,31 +25,30 @@ dates = Date.new(2020, 6, 11) .. Date.today
 
 html_path_template = "./html/coronavirus-update-victoria-%s.html"
 csv_path_template = "./csv/%s.csv"
+symlink_path = Pathname("./latest.csv")
 
 last_total_for_lga = Hash.new { 0 }
 
 dates.each do |date|
-    html_path = html_path_template % date.to_s
+    html_path = Pathname(html_path_template % date.to_s)
     csv_path = csv_path_template % date.to_s
 
-    if File.exist?(html_path)
-        html = File.read(html_path)
+    if html_path.exist?
+        html = html_path.read
     else
         urls = date_formats.map {|fmt| url_template % date.strftime(fmt).downcase }.uniq
         urls.each do |url|
             html = Net::HTTP.get(URI(url))
             break if html !~ /Error\<\/title\>/
         end
-        File.open(html_path, 'w') do |f|
-            f.write html
-        end
+        html_path.write html
     end
 
     doc = Nokogiri::HTML(html)
     page_title = doc.css('title').text.strip
     if page_title =~ /\| Error$/
         STDERR.puts "warning: #{html_path} is an error page"
-        File.unlink(html_path)
+        html_path.unlink
         next
     end
 
@@ -96,4 +96,8 @@ CSV.open(output_path, 'w') do |csv|
         end
     end
 end
+
+symlink_path.unlink if symlink_path.symlink?
+File.symlink output_path, symlink_path unless symlink_path.exist?
+
 puts "Wrote #{count} records to #{output_path}"
