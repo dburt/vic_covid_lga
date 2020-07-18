@@ -12,7 +12,15 @@ require 'uri'
 
 # https://www.dhhs.vic.gov.au/coronavirus-update-victoria-11-june-2020
 url_template = "https://www.dhhs.vic.gov.au/coronavirus-update-victoria-%s"
-date_format = "%-d-%B-%Y"  # 11-june-2020
+date_formats = [
+    "%d-%B-%Y",      # 01-june-2020
+    "%-d-%B-%Y",     # 1-june-2020
+    "%A-%-d-%B",     # monday-1-june
+    "%A-%d-%B",      # monday-01-june
+    "%A-%-d-%B-%Y",  # monday-1-june-2020
+    "%A-%d-%B-%Y",   # monday-01-june-2020
+]
+default_date_format = date_formats[1]
 dates = Date.new(2020, 6, 11) .. Date.today
 
 html_path_template = "./html/coronavirus-update-victoria-%s.html"
@@ -21,22 +29,17 @@ csv_path_template = "./csv/%s.csv"
 last_total_for_lga = Hash.new { 0 }
 
 dates.each do |date|
-    formatted_date = date.strftime(date_format).downcase
-    url = url_template % formatted_date
+    formatted_date = date.strftime(default_date_format).downcase
     html_path = html_path_template % formatted_date
     csv_path = csv_path_template % formatted_date
 
     if File.exist?(html_path)
         html = File.read(html_path)
     else
-        html = Net::HTTP.get(URI(url))
-        if html =~ /Error\<\/title\>/
-            url = url_template % ("0" + formatted_date)
+        urls = date_formats.map {|fmt| url_template % date.strftime(fmt).downcase }.uniq
+        urls.each do |url|
             html = Net::HTTP.get(URI(url))
-            if html =~ /Error\<\/title\>/
-                url = url_template % date.strftime("%A-%-d-%B").downcase
-                html = Net::HTTP.get(URI(url))
-            end
+            break if html !~ /Error\<\/title\>/
         end
         File.open(html_path, 'w') do |f|
             f.write html
@@ -46,7 +49,7 @@ dates.each do |date|
     doc = Nokogiri::HTML(html)
     page_title = doc.css('title').text.strip
     if page_title =~ /\| Error$/
-        STDERR.puts "warning: #{url} is an error page"
+        STDERR.puts "warning: #{html_path} is an error page"
         File.unlink(html_path)
         next
     end
@@ -70,13 +73,13 @@ dates.each do |date|
     end
 end
 
-output_path = "coronavirus cases by vic lga #{dates.last.strftime(date_format).downcase}.csv"
+output_path = "coronavirus cases by vic lga #{dates.last.strftime(default_date_format).downcase}.csv"
 count = 0
 CSV.open(output_path, 'w') do |csv|
     csv << %w(date lga_name total_cases active_cases new_cases)
 
     dates.each do |date|
-        formatted_date = date.strftime(date_format).downcase
+        formatted_date = date.strftime(default_date_format).downcase
         csv_path = csv_path_template % formatted_date
 
         csv_data = CSV.read(csv_path) rescue next
